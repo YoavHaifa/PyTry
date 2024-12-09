@@ -8,7 +8,7 @@ This is the most simple external function, with one input vector and one output 
 
 import torch
 
-class CExFunc(torch.autograd.Function):
+class CExFunc2Inputs(torch.autograd.Function):
     """
     We can implement our own custom autograd Functions by subclassing
     torch.autograd.Function and implementing the forward and backward passes
@@ -16,7 +16,7 @@ class CExFunc(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, input):
+    def forward(ctx, input1, input2):
         """
         In the forward pass we receive a Tensor containing the input and return
         a Tensor containing the output. ctx is a context object that can be used
@@ -25,7 +25,7 @@ class CExFunc(torch.autograd.Function):
         """
         #ctx.save_for_backward(input)
         with torch.no_grad():
-            i2 = input * 2
+            i2 = input1 * 2 + input2
         return i2
 
     @staticmethod
@@ -37,18 +37,22 @@ class CExFunc(torch.autograd.Function):
         """
         #input, = ctx.saved_tensors
         #return grad_output * 1.5 * (5 * input ** 2 - 1)
-        return grad_output
+        print(f'{grad_output.shape=}')
+        return grad_output, None
 
 
 def main():
-    print('*** Check CExFunc')
-    tensor = torch.randn(5)
-    print(f'{tensor=}')
+    print('*** Check CExFunc2Inputs')
+    tensor1 = torch.randn(5)
+    tensor2 = torch.randn(5)
+    print(f'{tensor1=}')
+    print(f'{tensor2=}')
     #func = CExFunc()
-    t2 = CExFunc.forward(tensor)
-    print(f'{t2=}')
-    t2b = CExFunc.backward(t2)
-    print(f'{t2b=}')
+    P = CExFunc2Inputs.apply
+    res = P(tensor1, tensor2)
+    print(f'{res=}')
+    back = CExFunc2Inputs.backward(None, res)
+    print(f'{back=}')
     
 
 if __name__ == '__main__':

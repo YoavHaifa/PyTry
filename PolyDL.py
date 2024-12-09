@@ -13,6 +13,8 @@ import torch.optim as optim
 import sys
 
 from ExFunc import CExFunc
+from ExFunc2Inputs import CExFunc2Inputs
+from ExFunc2Inputs2D import CExFunc2Inputs2D
 
 maxRadius = 260
 nImages = 280
@@ -37,18 +39,16 @@ def CreateModel(n_in, n_out):
     nn.Linear(n_out, n_out))
     return model
 
-
 def External(y_pred):
     with torch.no_grad():
         res = CExFunc.forward(y_pred)
         return res
 
-
-def Train(model, inTab, target, loss_fn, optimizer):
-    n = 20
+def Train1(model, inTab, target, loss_fn, optimizer):
+    nEpochs = 2
     n_in_epoch = 20
     P2 = CExFunc.apply
-    for epoch in range(n):
+    for epoch in range(nEpochs):
         for i in range (n_in_epoch):
             y_pred = model(inTab)
             res = P2(y_pred)
@@ -60,20 +60,76 @@ def Train(model, inTab, target, loss_fn, optimizer):
         print(f'{res=}')
         diff = res - target
         print(f'{diff=}')
+
+def Train2(model, inTab, in2, target, loss_fn, optimizer):
+    print('*** Train2 - external function with 2 input tensors')
+    print(f'{inTab.shape=}')
+    print(f'{in2.shape=}')
+    nEpochs = 2
+    n_in_epoch = 2
+    P2 = CExFunc2Inputs.apply
+    for epoch in range(nEpochs):
+        for i in range (n_in_epoch):
+            y_pred = model(inTab)
+            res = P2(y_pred, in2)
+            loss = loss_fn(res, target)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        print(f'Finished epoch {epoch}, latest loss {loss}')   
+        print(f'{res=}')
+        diff = res - target
+        print(f'{diff=}')
+
+def Train2D(model, inTab2D, in2, target, loss_fn, optimizer):
+    print('*** Train2D - external function with 2 input tensors')
+    print(f'{inTab2D.shape=}')
+    print(f'{in2.shape=}')
+    nEpochs = 4
+    n_in_epoch = 50
+    size = inTab2D.shape
+    nLines = size[0]
+    nCols = size[1]
+    target = target.view(-1,nCols)
+    print(f'Train2D {nLines=}, {nCols=}')
+    inTab1D = inTab2D.view(-1)
+    P2 = CExFunc2Inputs2D.apply
+    for epoch in range(nEpochs):
+        for i in range (n_in_epoch):
+            y_pred = model(inTab1D)
+            y_pred_2D = y_pred.view(-1,nCols)
+            res = P2(y_pred_2D, in2)
+            #print(f'{res.shape=}')
+            #print(f'{target.shape=}')
+            loss = loss_fn(res, target)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        print(f'Finished epoch {epoch}, latest loss {loss}')   
+        print(f'{res=}')
+        diff = res - target
+        print(f'{diff=}')
     
 
 def CheckTrain():
-    n_in = 4000
-    n_out = 8000
-    model = CreateModel(n_in, n_out)
+    n_in_cols = 5
+    n_in_lines = 2
+    n_out = 20
+    model = CreateModel(n_in_cols*n_in_lines, n_out)
     print(f'{model=}')
     mse_loss = nn.MSELoss()
-    inTab = torch.randn(n_in, requires_grad=True)
+    #inTab = torch.randn(n_in, requires_grad=True)
+    inTab2D = torch.randn([n_in_lines,n_in_cols], requires_grad=True)
+    in2 = torch.ones(n_out, requires_grad=False)
+    in1Line = torch.ones(n_in_cols, requires_grad=False)
     target = torch.randn(n_out)
-    print("inTab: ", inTab)
+    print("inTab2D: ", inTab2D)
+    print("in2: ", in2)
     print("target: ", target)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    Train(model, inTab, target, mse_loss, optimizer)
+    #Train1(model, inTab, target, mse_loss, optimizer)
+    #Train2(model, inTab, in2, target, mse_loss, optimizer)
+    Train2D(model, inTab2D, in1Line, target, mse_loss, optimizer)
     sys.exit()
 
 def main():
